@@ -805,6 +805,12 @@ function update() {
                 db.y = floorY - db.r;
                 if (db.vy > 0) db.vy *= -0.6;
                 db.vx *= 0.9;
+
+                // Snap to stop to ensure Game Over triggers
+                if (Math.abs(db.vx) < 0.2 && Math.abs(db.vy) < 1) {
+                    db.vx = 0;
+                    db.vy = 0;
+                }
             }
             // Walls for DB
             if (db.x < db.r) { db.x = db.r; db.vx *= -0.7; }
