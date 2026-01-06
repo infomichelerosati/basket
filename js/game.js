@@ -391,12 +391,24 @@ function createHoop(y, side) {
 }
 
 function createCoin(y) {
-    let isGold = Math.random() > 0.5; // 50% Gold, 50% Star
+    let rand = Math.random();
+    let type = 'GOLD';
+    let vy = 0;
+
+    if (rand > 0.66) {
+        type = 'MALUS'; // 33% Malus
+        vy = 0.5; // Falls slowly
+    } else if (rand > 0.33) {
+        type = 'STAR'; // 33% Star
+    }
+    // else 33% Gold
+
     return {
         x: (Math.random() * (width - 100)) + 50,
         y: y - 100 - (Math.random() * 100),
         r: 15,
-        type: isGold ? 'GOLD' : 'STAR',
+        type: type,
+        vy: vy,
         angle: 0
     };
 }
@@ -632,16 +644,28 @@ function update() {
         let dy = ball.y - c.y;
         if (Math.hypot(dx, dy) < ball.r + c.r) {
             coins.splice(i, 1);
-            let val = c.type === 'GOLD' ? 30 : 60;
-            score += (c.type === 'GOLD' ? 5 : 10);
-            scoreEl.innerText = score;
-            magnetTimer += val * 60;
-            showFloatingText("+" + val + "s MAGNETE", c.x, c.y, '#d000ff');
-            audioManager.playTone(800, 'sine', 0.1);
-            audioManager.playTone(1200, 'sine', 0.1, 0.1);
-            spawnParticles(c.x, c.y, 15, '#ffd700');
+
+            if (c.type === 'MALUS') {
+                fireballTimer = 0;
+                magnetTimer = 0;
+                showFloatingText("BONUS PERSI!", c.x, c.y, '#ff0000');
+                audioManager.playTone(100, 'sawtooth', 0.5, 0.4); // Negative sound
+                shakeScreen(10);
+                spawnParticles(c.x, c.y, 25, '#ff0000');
+            } else {
+                let val = c.type === 'GOLD' ? 30 : 60;
+                score += (c.type === 'GOLD' ? 5 : 10);
+                scoreEl.innerText = score;
+                magnetTimer = Math.min(magnetTimer + val * 60, 90 * 60); // Cap at 90s
+                showFloatingText("+" + val + "s MAGNETE", c.x, c.y, '#d000ff');
+                audioManager.playTone(800, 'sine', 0.1);
+                audioManager.playTone(1200, 'sine', 0.1, 0.1);
+                spawnParticles(c.x, c.y, 15, '#ffd700');
+            }
         } else {
             c.angle += 0.1;
+            c.y += c.vy; // Apply gravity/movement
+            if (c.y > height + 50) coins.splice(i, 1); // Remove if offscreen
         }
     }
 
@@ -905,7 +929,7 @@ function update() {
 
                 // Extra life
                 if (basketStreak % 3 === 0) {
-                    lives++;
+                    lives = Math.min(lives + 1, 7); // Max 7 lives
                     updateLivesUI();
                     showFloatingText("+1 VITA", width / 2, h.y - 120, '#ff2d75');
                     audioManager.playTone(600, 'sine', 0.3);
@@ -1130,18 +1154,43 @@ function draw() {
     coins.forEach(c => {
         ctx.save();
         ctx.translate(c.x, c.y);
-        ctx.rotate(c.angle);
+        ctx.rotate(Math.sin(c.angle) * 0.2);
 
-        ctx.shadowBlur = 10;
-        ctx.shadowColor = '#ffd700';
-        ctx.fillStyle = c.type === 'GOLD' ? '#ffd700' : '#ff00ff';
+        if (c.type === 'MALUS') {
+            // Pulsing Red
+            let pulse = (Math.sin(gameTime * 0.2) + 1) * 0.5; // Fast pulse
+            let scale = 1 + pulse * 0.2;
+            ctx.scale(scale, scale);
 
-        ctx.beginPath(); ctx.arc(0, 0, c.r, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = '#fff';
-        ctx.font = "bold 16px Arial";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillText(c.type === 'GOLD' ? "$" : "★", 0, 0);
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = '#ff0000';
+            ctx.fillStyle = '#ff0000';
+            ctx.beginPath();
+            ctx.arc(0, 0, c.r, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Symbol
+            ctx.fillStyle = '#550000';
+            ctx.font = "bold 16px Arial";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText("X", 0, 1);
+        } else {
+            // Gold / Star
+            let color = c.type === 'GOLD' ? '#ffd700' : '#d000ff';
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = color;
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(0, 0, c.r, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = '#fff';
+            ctx.font = "bold 14px Arial";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText(c.type === 'GOLD' ? "$" : "★", 0, 1);
+        }
 
         ctx.restore();
     });
