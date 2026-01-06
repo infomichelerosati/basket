@@ -24,6 +24,11 @@ let ball = {
     rimHit: false, stuckTimer: 0,
     trail: []
 };
+let shotTimer = 0;
+let shotMaxTime = 0;
+let fireballTimer = 0;
+let magnetTimer = 0;
+let coins = [];
 let deadBalls = [];
 let hoops = [];
 let obstacles = [];
@@ -42,6 +47,8 @@ const startBtn = document.getElementById('start-btn');
 const restartBtn = document.getElementById('restart-btn');
 const gameOverEl = document.getElementById('game-over-screen');
 const finalScoreEl = document.getElementById('final-score');
+const bestEl = document.getElementById('best');
+const statusContainer = document.getElementById('status-container');
 
 // Feature Flags (Level Progression)
 let seenFeatures = {
@@ -176,6 +183,11 @@ function updateLivesUI() {
     livesEl.innerText = hearts;
 }
 
+function updateBestScore() {
+    let hs = localStorage.getItem('dunk_hs') || 0;
+    bestEl.innerText = 'RECORD: ' + hs;
+}
+
 function addNextHoop() {
     let lastHoop = hoops[hoops.length - 1];
     let newY = lastHoop.y - (height * 0.4);
@@ -195,6 +207,12 @@ function addNextHoop() {
     if (obstacles.length > 5) {
         obstacles.shift();
     }
+
+    // Spawn Coins
+    if (score > 5 && Math.random() < 0.4) {
+        coins.push(createCoin(newY));
+        if (coins.length > 5) coins.shift();
+    }
 }
 
 function resetBall(hoop) {
@@ -207,15 +225,25 @@ function resetBall(hoop) {
     ball.stuckTimer = 0;
     ball.trail = [];
     gameState = 'AIMING';
+
+    // Shot Clock Logic
+    if (score >= 30) {
+        shotMaxTime = 60 * 8; // Always 8 seconds
+        shotTimer = shotMaxTime;
+    } else {
+        shotTimer = 0;
+    }
 }
 
 function gameOver() {
     gameState = 'GAMEOVER';
     finalScoreEl.innerText = score;
     gameOverEl.classList.remove('hidden');
+    gameOverEl.classList.add('active'); // Make visible
     // Save high score
     let hs = localStorage.getItem('dunk_hs') || 0;
     if (score > hs) localStorage.setItem('dunk_hs', score);
+    updateBestScore();
     audioManager.playGameOver();
 }
 
@@ -229,12 +257,15 @@ function startGame() {
     scoreEl.innerText = '0';
     updateLivesUI();
     gameOverEl.classList.add('hidden');
-    startBtn.parentElement.classList.add('hidden');
+    gameOverEl.classList.remove('active'); // Reset state
+    startBtn.parentElement.classList.remove('active'); // Fade out start screen
+    setTimeout(() => startBtn.parentElement.classList.add('hidden'), 500); // Hide after fade
 
     hoops = [];
     obstacles = [];
     deadBalls = [];
     particles = [];
+    coins = [];
     windForce = 0;
     cameraY = 0;
     targetCameraY = 0;
@@ -261,7 +292,7 @@ function resetLevel() {
 }
 
 function createHoop(y, side) {
-    let xPos = (side === 1) ? width - 80 : 80;
+    let xPos = (side === 1) ? width - 100 : 100;
     let hoopWidth = 90;
     let movementType = 'STATIC';
     let moveSpeedX = 0;
@@ -282,7 +313,7 @@ function createHoop(y, side) {
             moveSpeedX = 2;
             if (!seenFeatures.wave) {
                 seenFeatures.wave = true;
-                showFloatingText("WAVY HOOPS!", width / 2, y + 100, '#00ffff');
+                showFloatingText("CANESTRI ONDULATI!", width / 2, y + 100, '#00ffff');
             }
         }
     }
@@ -291,7 +322,7 @@ function createHoop(y, side) {
         hoopWidth = 80;
         if (!seenFeatures.small) {
             seenFeatures.small = true;
-            showWarning("TIGHT RIMS", "#ff9500");
+            showWarning("CERCHI STRETTI", "#ff9500");
         }
     }
 
@@ -308,7 +339,7 @@ function createHoop(y, side) {
         }
         if (!seenFeatures.blockers) {
             seenFeatures.blockers = true;
-            showWarning("DEFENSE DRONES", "#ff0044");
+            showWarning("DRONI DIFENSIVI", "#ff0044");
         }
     }
 
@@ -362,6 +393,17 @@ function createHoop(y, side) {
     };
 }
 
+function createCoin(y) {
+    let isGold = Math.random() > 0.3; // 70% Gold, 30% Star
+    return {
+        x: (Math.random() * (width - 100)) + 50,
+        y: y - 100 - (Math.random() * 100),
+        r: 15,
+        type: isGold ? 'GOLD' : 'STAR',
+        angle: 0
+    };
+}
+
 function createObstacle(y) {
     return {
         x: width / 2 - 40,
@@ -376,8 +418,7 @@ function createObstacle(y) {
 function setWind() {
     if (score > 8 && Math.random() > 0.6) {
         windForce = (Math.random() - 0.5) * 0.08;
-        let dir = windForce > 0 ? ">>" : "<<";
-        showFloatingText("WIND " + dir, width / 2, cameraY + 100, '#aaffaa');
+        // Visuals handled in updateStatus now
     } else {
         windForce = 0;
     }
@@ -567,6 +608,71 @@ function update() {
         return;
     }
 
+    // Shot Clock Update
+    if (gameState === 'AIMING' && shotTimer > 0) {
+        shotTimer--;
+        if (shotTimer <= 0) {
+            // Timeout
+            if (lives > 0) {
+                lives--;
+                updateLivesUI();
+                showFloatingText("TEMPO SCADUTO!", ball.x, ball.y, '#ff0000');
+                audioManager.playTone(100, 'sawtooth', 0.5, 0.3); // Buzzer
+                resetBall(lastSafeHoop || hoops[0]);
+            } else {
+                gameOver();
+            }
+        }
+    }
+
+    if (fireballTimer > 0) fireballTimer--;
+    if (magnetTimer > 0) magnetTimer--;
+
+    // Coins Collision
+    for (let i = coins.length - 1; i >= 0; i--) {
+        let c = coins[i];
+        let dx = ball.x - c.x;
+        let dy = ball.y - c.y;
+        if (Math.hypot(dx, dy) < ball.r + c.r) {
+            coins.splice(i, 1);
+            let val = c.type === 'GOLD' ? 30 : 60;
+            score += (c.type === 'GOLD' ? 5 : 10);
+            scoreEl.innerText = score;
+            magnetTimer += val * 60;
+            showFloatingText("+" + val + "s MAGNETE", c.x, c.y, '#d000ff');
+            audioManager.playTone(800, 'sine', 0.1);
+            audioManager.playTone(1200, 'sine', 0.1, 0.1);
+            spawnParticles(c.x, c.y, 15, '#ffd700');
+        } else {
+            c.angle += 0.1;
+        }
+    }
+
+    // Status UI Update
+    statusContainer.innerHTML = ''; // Clear previous
+
+    if (fireballTimer > 0) {
+        let el = document.createElement('div');
+        el.className = 'status-badge status-fire';
+        el.innerText = '🔥 ' + Math.ceil(fireballTimer / 60) + 's';
+        statusContainer.appendChild(el);
+    }
+
+    if (magnetTimer > 0) {
+        let el = document.createElement('div');
+        el.className = 'status-badge status-magnet';
+        el.innerText = '🧲 ' + Math.ceil(magnetTimer / 60) + 's';
+        statusContainer.appendChild(el);
+    }
+
+    if (windForce !== 0) {
+        let el = document.createElement('div');
+        el.className = 'status-badge status-wind';
+        let dir = windForce > 0 ? ">>" : "<<";
+        el.innerText = windForce > 0 ? "💨 " + dir : dir + " 💨";
+        statusContainer.appendChild(el);
+    }
+
     hoops.forEach(h => {
         if (!h.scored) {
             if (h.movementType === 'HORIZONTAL') {
@@ -691,13 +797,36 @@ function update() {
         }
 
         // Obstacles
-        obstacles.forEach(obs => {
-            if (resolveRectCollision(obs)) {
-                spawnParticles(ball.x, ball.y, 5, THEME.obstacle);
-                audioManager.playHit();
-                audioManager.vibrate(10);
+        for (let i = obstacles.length - 1; i >= 0; i--) {
+            let obs = obstacles[i];
+            let isFireball = fireballTimer > 0;
+
+            // Check collision without resolving first to detect fireball hit
+            // Simple AABB vs Circle check
+            let closestX = Math.max(obs.x, Math.min(ball.x, obs.x + obs.w));
+            let closestY = Math.max(obs.y, Math.min(ball.y, obs.y + obs.h));
+            let dx = ball.x - closestX;
+            let dy = ball.y - closestY;
+            let dist = Math.hypot(dx, dy);
+
+            if (dist < ball.r) {
+                if (isFireball) {
+                    // Destroy Obstacle
+                    obstacles.splice(i, 1);
+                    spawnParticles(ball.x, ball.y, 20, THEME.ballFire);
+                    audioManager.playTone(150, 'sawtooth', 0.2);
+                    showFloatingText("BOOM!", ball.x, ball.y, '#ff4400');
+                    shakeScreen(5);
+                } else {
+                    // Standard Bounce
+                    if (resolveRectCollision(obs)) {
+                        spawnParticles(ball.x, ball.y, 5, THEME.obstacle);
+                        audioManager.playHit();
+                        audioManager.vibrate(10);
+                    }
+                }
             }
-        });
+        }
 
         // Hoops
         hoops.forEach(h => {
@@ -707,13 +836,55 @@ function update() {
             h.blockers.forEach(b => {
                 let bx = h.x + Math.cos(b.angle) * b.dist;
                 let by = h.y + Math.sin(b.angle) * b.dist;
-                if (resolveCircleCollision(bx, by, b.r)) {
-                    spawnParticles(ball.x, ball.y, 10, THEME.blocker);
-                    audioManager.playHit();
-                    audioManager.vibrate(30);
-                    shakeScreen(5);
+                let isFireball = fireballTimer > 0;
+
+                // Manual check to separate detection from resolution
+                let dx = ball.x - bx;
+                let dy = ball.y - by;
+                let dist = Math.hypot(dx, dy);
+
+                if (dist < ball.r + b.r) {
+                    if (isFireball) {
+                        // Destroy Blocker - no bounce
+                        h.blockers.splice(h.blockers.indexOf(b), 1);
+                        spawnParticles(ball.x, ball.y, 15, THEME.ballFire);
+                        audioManager.playTone(200, 'square', 0.2);
+                        showFloatingText("DISTRUTTO!", bx, by, '#ff4400');
+                    } else {
+                        // Standard Bounce
+                        if (resolveCircleCollision(bx, by, b.r)) {
+                            spawnParticles(ball.x, ball.y, 10, THEME.blocker);
+                            audioManager.playHit();
+                            audioManager.vibrate(30);
+                            shakeScreen(5);
+                        }
+                    }
                 }
             });
+
+            // Magnet Physics
+            if (magnetTimer > 0) {
+                let dx = h.x - ball.x;
+                let dy = h.y - ball.y;
+                let dist = Math.hypot(dx, dy);
+                if (dist < 200 && ball.y < h.y) {
+                    // Stronger pull towards center
+                    ball.vx += dx * 0.05;
+                    ball.vy += dy * 0.05;
+
+                    // Damping to stop at center
+                    ball.vx *= 0.85;
+                    ball.vy *= 0.85;
+
+                    if (Math.random() > 0.7) {
+                        particles.push({
+                            x: ball.x, y: ball.y,
+                            vx: (Math.random() - 0.5) * 2, vy: (Math.random() - 0.5) * 2,
+                            life: 1.0, size: Math.random() * 3, color: '#d000ff'
+                        });
+                    }
+                }
+            }
 
             let rimL = h.x - h.w / 2;
             let rimR = h.x + h.w / 2;
@@ -739,7 +910,7 @@ function update() {
                 if (basketStreak % 3 === 0) {
                     lives++;
                     updateLivesUI();
-                    showFloatingText("+1 HEART", width / 2, h.y - 120, '#ff2d75');
+                    showFloatingText("+1 VITA", width / 2, h.y - 120, '#ff2d75');
                     audioManager.playTone(600, 'sine', 0.3);
                 }
 
@@ -749,9 +920,11 @@ function update() {
                 if (isPerfect) {
                     points = 2;
                     isPerfectStreak++;
-                    showFloatingText((isPerfectStreak > 1 ? "PERFECT x" + isPerfectStreak : "PERFECT!"), width / 2, h.y - 60);
+                    showFloatingText((isPerfectStreak > 1 ? "PERFETTO x" + isPerfectStreak : "PERFETTO!"), width / 2, h.y - 60);
                     shakeScreen(5);
                     audioManager.vibrate([30, 30]);
+
+                    if (isPerfectStreak >= 2) fireballTimer = 600; // 10s Reset
                 } else {
                     isPerfectStreak = 0;
                     audioManager.vibrate(20);
@@ -761,7 +934,7 @@ function update() {
 
                 score += points;
                 scoreEl.innerText = score;
-                if (isPerfectStreak > 2) scoreEl.style.color = '#ff4400';
+                if (fireballTimer > 0) scoreEl.style.color = '#ff4400';
                 else scoreEl.style.color = 'white';
 
                 spawnParticles(h.x, h.y, 25, isPerfect ? '#00f2ff' : '#ffffff');
@@ -785,7 +958,7 @@ function update() {
                 // Ball fell back into the starting hoop!
                 resetBall(lh);
                 ball.trail = []; // Explicit clear
-                showFloatingText("SAFE!", width / 2, lh.y - 80, '#00ff00');
+                showFloatingText("SALVO!", width / 2, lh.y - 80, '#00ff00');
                 audioManager.playTone(300, 'sine', 0.1);
             }
         }
@@ -810,6 +983,7 @@ function update() {
                 if (Math.abs(db.vx) < 0.2 && Math.abs(db.vy) < 1) {
                     db.vx = 0;
                     db.vy = 0;
+                    db.life = (db.life || 1.0) - 0.02;
                 }
             }
             // Walls for DB
@@ -821,6 +995,9 @@ function update() {
                 resolveBallCollision(db, deadBalls[j]);
             }
         }
+
+        // Remove dead balls
+        deadBalls = deadBalls.filter(db => (db.life === undefined || db.life > 0));
 
         // Death Logic - Floor Bounce
         if (ball.y + ball.r > floorY) {
@@ -863,7 +1040,7 @@ function update() {
                     if (lives > 1) {
                         lives--;
                         updateLivesUI();
-                        showFloatingText("OUCH!", width / 2, cameraY + height / 2, '#ff2d75');
+                        showFloatingText("AHIA!", width / 2, cameraY + height / 2, '#ff2d75');
                         audioManager.playTone(150, 'sawtooth', 0.3);
                         audioManager.vibrate(200);
 
@@ -952,8 +1129,52 @@ function draw() {
     });
     ctx.shadowBlur = 0;
 
+    // Coins
+    coins.forEach(c => {
+        ctx.save();
+        ctx.translate(c.x, c.y);
+        ctx.rotate(c.angle);
+
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = '#ffd700';
+        ctx.fillStyle = c.type === 'GOLD' ? '#ffd700' : '#ff00ff';
+
+        ctx.beginPath(); ctx.arc(0, 0, c.r, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.font = "bold 16px Arial";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(c.type === 'GOLD' ? "$" : "★", 0, 0);
+
+        ctx.restore();
+    });
+
     // Hoops
     hoops.forEach(h => {
+        // Magnet Visuals (Waves)
+        if (magnetTimer > 0 && !h.scored) {
+            ctx.save();
+            ctx.translate(h.x, h.y);
+            ctx.beginPath();
+            let pulse = (Math.sin(gameTime * 0.1) + 1) * 0.5; // 0 to 1
+            let waveR = 100 + pulse * 150; // 100 to 250
+
+            ctx.arc(0, 0, waveR, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(208, 0, 255, ${0.3 - pulse * 0.2})`; // Fade out as expands
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Second Wave
+            let pulse2 = (Math.sin(gameTime * 0.1 + Math.PI) + 1) * 0.5;
+            let waveR2 = 100 + pulse2 * 150;
+            ctx.beginPath();
+            ctx.arc(0, 0, waveR2, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(208, 0, 255, ${0.3 - pulse2 * 0.2})`;
+            ctx.stroke();
+
+            ctx.restore();
+        }
+
         let xl = h.x - h.w / 2;
         let xr = h.x + h.w / 2;
         let bbW = h.w + 30;
@@ -1056,6 +1277,7 @@ function draw() {
         ctx.translate(db.x, db.y);
         ctx.rotate(db.rot);
         ctx.fillStyle = "#885500"; // Darker/Dimmed color
+        if (db.life !== undefined) ctx.globalAlpha = db.life;
         ctx.beginPath(); ctx.arc(0, 0, db.r, 0, Math.PI * 2); ctx.fill();
         ctx.strokeStyle = 'rgba(0,0,0,0.4)';
         ctx.lineWidth = 2.5;
@@ -1084,7 +1306,7 @@ function draw() {
     ctx.translate(ball.x, ball.y);
     ctx.rotate(ball.rot);
 
-    let ballColor = (isPerfectStreak > 2) ? THEME.ballFire : THEME.ball;
+    let ballColor = (fireballTimer > 0) ? THEME.ballFire : THEME.ball;
 
     // 3D Effect - Radial Gradient
     // Highlight offset to top-left (-5, -5)
@@ -1094,8 +1316,24 @@ function draw() {
     grd.addColorStop(1, "#9e4800"); // Shadow
 
     // Ball Glow
-    ctx.shadowBlur = isPerfectStreak > 2 ? 30 : 15;
-    ctx.shadowColor = ballColor;
+    if (fireballTimer > 0) {
+        // Fireball Effect
+        ctx.shadowBlur = 40 + Math.random() * 25; // Intense flickering glow
+        ctx.shadowColor = '#ff3300';
+
+        // Inner Heat
+        ctx.save();
+        ctx.globalAlpha = 0.4;
+        ctx.fillStyle = '#ffaa00';
+        ctx.beginPath();
+        ctx.arc(0, 0, ball.r + 4 + Math.random() * 4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    } else {
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = ballColor;
+    }
+
     ctx.fillStyle = grd;
 
     ctx.beginPath(); ctx.arc(0, 0, ball.r, 0, Math.PI * 2); ctx.fill();
@@ -1118,6 +1356,21 @@ function draw() {
 
     ctx.restore(); // Restore camera shift
     ctx.restore(); // Restore shake
+
+    // Shot Clock UI
+    if (gameState === 'AIMING' && shotTimer > 0) {
+        let pct = shotTimer / shotMaxTime;
+        let color = pct > 0.5 ? '#00ff00' : (pct > 0.25 ? '#ffff00' : '#ff0000');
+
+        ctx.save();
+        ctx.translate(0, -cameraY); // Need to apply camera transform as this is World space overlay
+        ctx.beginPath();
+        ctx.arc(ball.x, ball.y, ball.r + 12, -Math.PI / 2, (-Math.PI / 2) + (Math.PI * 2 * pct), false);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 4;
+        ctx.stroke();
+        ctx.restore();
+    }
 }
 
 function loop() {
@@ -1127,5 +1380,7 @@ function loop() {
 }
 
 // Init
+// Init
 resize();
+updateBestScore();
 requestAnimationFrame(loop);

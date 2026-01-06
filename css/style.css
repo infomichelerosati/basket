@@ -103,19 +103,61 @@ html {
     padding-left: 15px;
 }
 
-.wind-indicator {
-    margin-top: 15px;
+/* Multi-Status Container */
+.status-container {
+    display: flex;
+    flex-direction: row;
+    gap: 8px;
+    align-items: center;
+    justify-content: center;
+    min-height: 24px;
+}
+
+/* Base Badge Style */
+.status-badge {
+    padding: 4px 10px;
+    border-radius: 20px;
     font-size: 14px;
-    color: var(--primary);
-    font-weight: bold;
+    font-weight: 800;
     text-transform: uppercase;
-    opacity: 0;
-    transition: opacity 0.5s;
-    text-shadow: 0 0 8px var(--primary);
-    background: rgba(0, 0, 0, 0.3);
-    padding: 5px 10px;
-    border-radius: 5px;
-    border: 1px solid rgba(0, 242, 255, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+    animation: pulseStatus 1s infinite alternate;
+}
+
+.status-fire {
+    background: rgba(255, 68, 0, 0.2);
+    border: 1px solid #ff4400;
+    color: #ff9500;
+    box-shadow: 0 0 10px rgba(255, 68, 0, 0.5);
+}
+
+.status-wind {
+    background: rgba(0, 242, 255, 0.2);
+    border: 1px solid #00f2ff;
+    color: #00f2ff;
+    text-shadow: 0 0 5px #00f2ff;
+}
+
+.status-magnet {
+    background: rgba(180, 0, 255, 0.2);
+    border: 1px solid #d000ff;
+    color: #d000ff;
+    text-shadow: 0 0 5px #d000ff;
+}
+
+@keyframes pulseStatus {
+    from {
+        transform: scale(1);
+        opacity: 0.8;
+    }
+
+    to {
+        transform: scale(1.05);
+        opacity: 1;
+    }
 }
 
 .pop-text {

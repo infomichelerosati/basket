@@ -1,56 +1,60 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Dunk Shot Master</title>
-    
+
     <!-- PWA -->
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#0b0e14">
     <link rel="apple-touch-icon" href="assets/icon-192.png">
-    
+
     <!-- Styles -->
     <link rel="stylesheet" href="css/style.css">
-    
+
     <!-- Fonts (Optional, preconnect) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;900&display=swap" rel="stylesheet">
 </head>
+
 <body>
 
-<!-- UI Layer -->
-<div id="ui-layer">
-    <div class="score-container">
-        <div id="score" class="score-text">0</div>
-        <div id="lives" class="lives-text">❤❤❤</div>
-        <div id="best" class="best-text">Best: 0</div>
+    <!-- UI Layer -->
+    <div id="ui-layer">
+        <div class="score-container">
+            <div id="score" class="score-text">0</div>
+            <div id="lives" class="lives-text">❤❤❤</div>
+            <div id="status-container" class="status-container"></div>
+            <div id="best" class="best-text">Record: 0</div>
+        </div>
     </div>
-    <div id="wind" class="wind-indicator">WIND >></div>
-</div>
 
-<!-- Start Screen -->
-<div id="start-screen" class="fullscreen-overlay active">
-    <div class="overlay-title">DUNK SHOT<br>MASTER</div>
-    <button id="start-btn" class="overlay-btn">PLAY</button>
-    <button id="install-btn" class="install-btn">INSTALL APP</button>
-</div>
+    <!-- Start Screen -->
+    <div id="start-screen" class="fullscreen-overlay active">
+        <div class="overlay-title">DUNK SHOT<br>MASTER</div>
+        <button id="start-btn" class="overlay-btn">GIOCA</button>
+        <button id="install-btn" class="install-btn">INSTALLA APP</button>
+    </div>
 
-<!-- Game Over Screen -->
-<div id="game-over-screen" class="fullscreen-overlay">
-    <div class="overlay-title" style="font-size: 42px;">GAME OVER</div>
-    <div class="overlay-score">SCORE: <span id="final-score">0</span></div>
-    <button id="restart-btn" class="overlay-btn">RETRY</button>
-</div>
+    <!-- Game Over Screen -->
+    <div id="game-over-screen" class="fullscreen-overlay">
+        <div class="overlay-title" style="font-size: 42px;">GAME OVER</div>
+        <div class="overlay-score">PUNTI: <span id="final-score">0</span></div>
+        <button id="restart-btn" class="overlay-btn">RITENTA</button>
+    </div>
 
-<!-- Game Canvas -->
-<canvas id="gameCanvas"></canvas>
+    <!-- Game Canvas -->
+    <canvas id="gameCanvas"></canvas>
 
-<!-- Scripts -->
-<script src="js/audio.js"></script>
-<script src="js/game.js"></script>
-<script src="js/pwa-handler.js"></script>
+    <!-- Scripts -->
+    <script src="js/audio.js"></script>
+    <script src="js/game.js"></script>
+    <script src="js/pwa-handler.js"></script>
 
 </body>
+
 </html>
