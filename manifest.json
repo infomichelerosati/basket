@@ -1,0 +1,17 @@
+{
+    "name": "Dunk Shot Master",
+    "short_name": "DunkMaster",
+    "description": "Arcade basketball game with neon graphics.",
+    "start_url": "./index.html",
+    "display": "standalone",
+    "background_color": "#0b0e14",
+    "theme_color": "#0b0e14",
+    "orientation": "portrait",
+    "icons": [
+        {
+            "src": "assets/icon.svg",
+            "sizes": "192x192 512x512",
+            "type": "image/svg+xml"
+        }
+    ]
+}
