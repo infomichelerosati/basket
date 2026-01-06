@@ -176,11 +176,7 @@ function showWarning(text, color) {
 }
 
 function updateLivesUI() {
-    let hearts = '';
-    let displayLives = Math.min(lives, 5);
-    for (let i = 0; i < displayLives; i++) hearts += '❤';
-    if (lives > 5) hearts += '+';
-    livesEl.innerText = hearts;
+    livesEl.innerText = "❤ x" + lives;
 }
 
 function updateBestScore() {
@@ -209,7 +205,7 @@ function addNextHoop() {
     }
 
     // Spawn Coins
-    if (score > 5 && Math.random() < 0.4) {
+    if (score > 5 && Math.random() < 0.2) {
         coins.push(createCoin(newY));
         if (coins.length > 5) coins.shift();
     }
@@ -249,13 +245,14 @@ function gameOver() {
 
 function startGame() {
     audioManager.init(); // Initialize audio context on user interaction
-    score = 0;
     lives = 3;
+    score = 0;
     basketStreak = 0;
     isPerfectStreak = 0;
-    gameTime = 0;
-    scoreEl.innerText = '0';
-    updateLivesUI();
+    fireballTimer = 0;
+    magnetTimer = 0;
+    updateLivesUI(); // Use function to set initial text
+    scoreEl.innerText = score;
     gameOverEl.classList.add('hidden');
     gameOverEl.classList.remove('active'); // Reset state
     startBtn.parentElement.classList.remove('active'); // Fade out start screen
@@ -394,7 +391,7 @@ function createHoop(y, side) {
 }
 
 function createCoin(y) {
-    let isGold = Math.random() > 0.3; // 70% Gold, 30% Star
+    let isGold = Math.random() > 0.5; // 50% Gold, 50% Star
     return {
         x: (Math.random() * (width - 100)) + 50,
         y: y - 100 - (Math.random() * 100),
