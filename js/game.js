@@ -588,6 +588,9 @@ window.addEventListener('touchstart', e => {
 }, { passive: false });
 
 window.addEventListener('touchmove', e => {
+    // Allow scrolling in leaderboard
+    if (e.target.closest('.leaderboard-list')) return;
+
     e.preventDefault(); // Stop scrolling while aiming
     onInputMove(e.touches[0].clientX, e.touches[0].clientY);
 }, { passive: false });
