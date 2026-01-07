@@ -1,9 +1,10 @@
-const CACHE_NAME = 'dunk-master-v1.2';
+const CACHE_NAME = 'dunk-master-v1.3';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
     './css/style.css',
     './js/game.js',
+    './js/leaderboard.js',
     './js/audio.js',
     './js/pwa-handler.js',
     './manifest.json',

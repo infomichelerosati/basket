@@ -365,3 +365,121 @@ html {
     animation: shake 0.5s;
     animation-iteration-count: 1;
 }
+
+/* Leaderboard Styles */
+.leaderboard-list {
+    width: 90%;
+    max-width: 400px;
+    height: 50vh;
+    overflow-y: auto;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 15px;
+    padding: 10px;
+    margin-bottom: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.leaderboard-item {
+    display: flex;
+    align-items: center;
+    background: rgba(0, 0, 0, 0.3);
+    margin-bottom: 8px;
+    padding: 10px;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: bold;
+}
+
+.lb-rank {
+    width: 30px;
+    text-align: center;
+    margin-right: 10px;
+    font-style: italic;
+    color: #888;
+}
+
+.lb-rank.rank-1 {
+    color: #ffd700;
+    font-size: 20px;
+    text-shadow: 0 0 10px #ffd700;
+}
+
+.lb-rank.rank-2 {
+    color: #c0c0c0;
+    font-size: 18px;
+}
+
+.lb-rank.rank-3 {
+    color: #cd7f32;
+    font-size: 18px;
+}
+
+.lb-name {
+    flex-grow: 1;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: white;
+}
+
+.lb-score {
+    color: var(--primary);
+    font-family: monospace;
+    font-size: 18px;
+}
+
+/* Save Score Form */
+.save-score-box {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    justify-content: center;
+    width: 100%;
+    max-width: 300px;
+}
+
+#player-name-input {
+    background: rgba(255, 255, 255, 0.1);
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    padding: 10px;
+    border-radius: 10px;
+    color: white;
+    font-family: 'Outfit', sans-serif;
+    font-weight: bold;
+    text-align: center;
+    outline: none;
+    flex-grow: 1;
+}
+
+#player-name-input:focus {
+    border-color: var(--primary);
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.small-btn {
+    background: var(--primary);
+    border: none;
+    border-radius: 10px;
+    padding: 0 20px;
+    font-weight: 900;
+    color: black;
+    cursor: pointer;
+    text-transform: uppercase;
+}
+
+.secondary-btn {
+    background: rgba(255, 255, 255, 0.1) !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    box-shadow: none !important;
+}
+
+/* Loading/Empty States */
+.loading-spinner,
+.error-msg,
+.empty-msg {
+    text-align: center;
+    padding: 20px;
+    color: rgba(255, 255, 255, 0.5);
+    font-style: italic;
+}

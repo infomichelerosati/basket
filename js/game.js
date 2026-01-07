@@ -241,6 +241,11 @@ function gameOver() {
     if (score > hs) localStorage.setItem('dunk_hs', score);
     updateBestScore();
     audioManager.playGameOver();
+
+    // Show Save Score UI (if loaded)
+    if (window.initLeaderboardSave) {
+        window.initLeaderboardSave(score);
+    }
 }
 
 function startGame() {
