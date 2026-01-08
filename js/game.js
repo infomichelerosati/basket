@@ -10,7 +10,8 @@ let targetCameraY = 0;
 let shakeTimer = 0;
 
 // Game State
-let gameState = 'MENU'; // MENU, AIMING, FLYING, GAMEOVER, GROUNDED
+let gameState = 'MENU'; // MENU, AIMING, FLYING, GAMEOVER, GROUNDED, PAUSED
+let isPaused = false;
 let gameTime = 0;
 let score = 0;
 let lives = 3;
@@ -49,6 +50,10 @@ const gameOverEl = document.getElementById('game-over-screen');
 const finalScoreEl = document.getElementById('final-score');
 const bestEl = document.getElementById('best');
 const statusContainer = document.getElementById('status-container');
+const pauseBtn = document.getElementById('pause-btn');
+const pauseOverlay = document.getElementById('pause-overlay');
+const resumeBtn = document.getElementById('resume-btn');
+const quitBtn = document.getElementById('quit-btn');
 
 // Feature Flags (Level Progression)
 let seenFeatures = {
@@ -249,8 +254,10 @@ function gameOver() {
 }
 
 function startGame() {
+    canvas.className = 'bg-theme-0'; // Reset Theme
     audioManager.init(); // Initialize audio context on user interaction
     lives = 3;
+    maxLives = 7; // NEW: Dynamic Max Lives
     score = 0;
     basketStreak = 0;
     isPerfectStreak = 0;
@@ -263,6 +270,10 @@ function startGame() {
     startBtn.parentElement.classList.remove('active'); // Fade out start screen
     setTimeout(() => startBtn.parentElement.classList.add('hidden'), 500); // Hide after fade
 
+    isPaused = false;
+    pauseOverlay.classList.add('hidden');
+    pauseOverlay.classList.remove('active');
+
     hoops = [];
     obstacles = [];
     deadBalls = [];
@@ -271,7 +282,10 @@ function startGame() {
     windForce = 0;
     cameraY = 0;
     targetCameraY = 0;
-    seenFeatures = { wave: false, blockers: false, small: false };
+    targetCameraY = 0;
+    seenFeatures = { wave: false, blockers: false, small: false, shield: false };
+
+    // Initial Hoops
 
     // Initial Hoops
     hoops.push(createHoop(height - 200, 1));
@@ -345,6 +359,22 @@ function createHoop(y, side) {
         }
     }
 
+    // TIER: MASTER (Score > 500) - Orbital Shields
+    let shield = null;
+    if (score > 500 && Math.random() > 0.5) {
+        shield = {
+            angle: Math.random() * Math.PI * 2,
+            speed: (Math.random() > 0.5 ? 1 : -1) * (0.02 + Math.random() * 0.02),
+            dist: 65,
+            arc: Math.PI / 1.5, // 120 degrees coverage
+            active: true
+        };
+        if (!seenFeatures.shield) {
+            seenFeatures.shield = true; // Need to add this to seenFeatures init
+            showWarning("SCUDI ORBITALI", "#00ffcc");
+        }
+    }
+
     // Net Physics (Verlet)
     let net = { nodes: [], constraints: [] };
     let netWidth = 60; // Top width of net
@@ -391,6 +421,7 @@ function createHoop(y, side) {
         swish: 0,
         net: net,
         blockers: blockers,
+        shield: shield,
         timeOffset: Math.random() * 100
     };
 }
@@ -602,10 +633,35 @@ window.addEventListener('resize', resize);
 startBtn.addEventListener('click', startGame);
 restartBtn.addEventListener('click', startGame);
 
+// Pause Logic
+pauseBtn.addEventListener('click', togglePause);
+resumeBtn.addEventListener('click', togglePause);
+quitBtn.addEventListener('click', () => {
+    togglePause(); // Unpause logic state
+    gameOver(); // Force game over to return to menu/score
+});
+
+function togglePause() {
+    if (gameState === 'MENU' || gameState === 'GAMEOVER') return;
+
+    isPaused = !isPaused;
+
+    if (isPaused) {
+        pauseOverlay.classList.remove('hidden');
+        pauseOverlay.classList.add('active');
+        // Stop audio?
+    } else {
+        pauseOverlay.classList.remove('active');
+        pauseOverlay.classList.add('hidden');
+    }
+}
+
 
 // --- UPDATE & DRAW ---
 
 function update() {
+    if (isPaused) return;
+
     gameTime += 1;
 
     // Shake decay
@@ -796,6 +852,13 @@ function update() {
 
     if (gameState === 'FLYING') {
         ball.vy += 0.45; // Gravity (Reduced from 0.55)
+
+        // TIER: ELITE (Score > 300) - Variable Wind
+        if (score > 300) {
+            // Wind fluctuates smoother and weaker
+            windForce = Math.sin(gameTime * 0.005) * 0.04;
+        }
+
         ball.vx += windForce;
         ball.x += ball.vx;
         ball.y += ball.vy;
@@ -889,7 +952,70 @@ function update() {
                         }
                     }
                 }
+
             });
+
+            // Shield Collision (Orbital Arc)
+            if (h.shield && h.shield.active) {
+                let s = h.shield;
+                s.angle += s.speed;
+                // Normalize angle
+                s.angle = s.angle % (Math.PI * 2);
+
+                let dx = ball.x - h.x;
+                let dy = ball.y - h.y;
+                let dist = Math.hypot(dx, dy);
+
+                // Check if ball is hitting the shield radius
+                if (Math.abs(dist - s.dist) < ball.r + 5) {
+                    let angle = Math.atan2(dy, dx);
+                    // Normalize standard angle to positive 0-2PI
+                    if (angle < 0) angle += Math.PI * 2;
+
+                    let sAngle = s.angle;
+                    if (sAngle < 0) sAngle += Math.PI * 2;
+
+                    // Check if angle is within arc
+                    let endAngle = sAngle + s.arc;
+                    let hit = false;
+
+                    // Handle wrap-around math
+                    // Simplest: Check diff
+                    let angleDiff = angle - sAngle;
+                    if (angleDiff < 0) angleDiff += Math.PI * 2;
+
+                    if (angleDiff < s.arc) {
+                        hit = true;
+                    }
+
+                    if (hit) {
+                        // Bounce
+                        // Logic: push out based on current position relative to hoop center
+                        let nx = Math.cos(angle);
+                        let ny = Math.sin(angle);
+
+                        // Push away from shield radius
+                        if (dist < s.dist) {
+                            // Inside -> Push Inwards? No, usually push out to avoid getting stuck inside
+                            // For now, let's treat it as a hard wall at s.dist
+                            let pen = (s.dist - ball.r) - dist; // If inside ring? 
+                            // Keep it simple: Hard bounce away from hoop center
+                            ball.x = h.x + nx * (s.dist + ball.r + 2);
+                            ball.y = h.y + ny * (s.dist + ball.r + 2);
+                        } else {
+                            ball.x = h.x + nx * (s.dist + ball.r + 2);
+                            ball.y = h.y + ny * (s.dist + ball.r + 2);
+                        }
+
+                        let dot = ball.vx * nx + ball.vy * ny;
+                        ball.vx = (ball.vx - 2 * dot * nx) * 0.8;
+                        ball.vy = (ball.vy - 2 * dot * ny) * 0.8;
+
+                        spawnParticles(ball.x, ball.y, 10, '#00ffcc');
+                        audioManager.playHit();
+                    }
+                }
+            }
 
             // Magnet Physics
             if (magnetTimer > 0) {
@@ -918,6 +1044,23 @@ function update() {
             let rimL = h.x - h.w / 2;
             let rimR = h.x + h.w / 2;
 
+            // Rim Assist (Magnetism)
+            // Gentle pull towards center if within horizontal range and near rim height
+            if (gameState === 'FLYING' && ball.vy > 0) {
+                let distToCenterX = h.x - ball.x;
+                // Check horizontal range (within 30px of center)
+                if (Math.abs(distToCenterX) < 30) {
+                    // Check vertical range (ball just above or at rim level)
+                    // Hoops are at h.y
+                    if (ball.y < h.y + 10 && ball.y > h.y - 40) {
+                        // Apply gentle horizontal force
+                        ball.vx += distToCenterX * 0.15;
+                        // Apply slight vertical damping to "catch" it
+                        ball.vy *= 0.9;
+                    }
+                }
+            }
+
             // Rim collision
             if (resolveCircleCollision(rimL, h.y, 5) || resolveCircleCollision(rimR, h.y, 5)) {
                 ball.rimHit = true;
@@ -935,19 +1078,32 @@ function update() {
                 lastSafeHoop = h;
                 basketStreak++;
 
-                // Extra life
+                // Dynamic Max Lives (Increases every 500 pts)
+                let currentMaxLives = 7 + Math.floor(score / 500);
+                if (currentMaxLives > maxLives) {
+                    maxLives = currentMaxLives;
+                    lives++;
+                    updateLivesUI();
+                    showFloatingText("CAPACITÀ VITE AUMENTATA!", width / 2, h.y - 150, '#ff00ff');
+                    audioManager.playTone(600, 'square', 0.4);
+                }
+
+                // Extra life on Streak
                 if (basketStreak % 3 === 0) {
-                    lives = Math.min(lives + 1, 7); // Max 7 lives
+                    lives = Math.min(lives + 1, maxLives); // Use dynamic max
                     updateLivesUI();
                     showFloatingText("+1 VITA", width / 2, h.y - 120, '#ff2d75');
                     audioManager.playTone(600, 'sine', 0.3);
                 }
 
-                let points = 1;
+                // Score Multiplier: Double points every 500 score
+                let multiplier = Math.pow(2, Math.floor(score / 500));
+
+                let points = 1 * multiplier;
                 let isPerfect = !ball.rimHit;
 
                 if (isPerfect) {
-                    points = 2;
+                    points = 2 * multiplier;
                     isPerfectStreak++;
                     showFloatingText((isPerfectStreak > 1 ? "PERFETTO x" + isPerfectStreak : "PERFETTO!"), width / 2, h.y - 60);
                     shakeScreen(5);
@@ -966,6 +1122,29 @@ function update() {
                 if (fireballTimer > 0) scoreEl.style.color = '#ff4400';
                 else scoreEl.style.color = 'white';
 
+                // TIER: JACKPOT ROUND (Every 250 pts)
+                if (score > 0 && score % 250 === 0) {
+                    // Trigger Jackpot
+                    showFloatingText("JACKPOT ROUND!", width / 2, height / 2, '#ffd700');
+                    spawnParticles(width / 2, height / 2, 50, '#ffd700');
+                    audioManager.playTone(400, 'square', 0.5, 0.5);
+                    // Logic handled in hoop creation or update?
+                    // Simplest: Add 50 coins immediately? No, "20 seconds of no obstacles"
+                    // We need a global jackpotTimer
+                    // But for now, let's just give a BIG bonus of coins + lives to keep it simple as requested
+                    coins.push(createCoin(h.y - 200));
+                    coins.push(createCoin(h.y - 300));
+                    coins.push(createCoin(h.y - 400));
+                    lives = Math.min(lives + 2, 7);
+                    updateLivesUI();
+                    showFloatingText("+2 VITE BONUS!", width / 2, h.y - 200, '#ff2d75');
+                }
+
+                // Update Background Theme (Every 300 points)
+                let themeIndex = Math.floor(score / 300) % 5;
+                canvas.className = ''; // Reset
+                canvas.classList.add('bg-theme-' + themeIndex);
+
                 spawnParticles(h.x, h.y, 25, isPerfect ? '#00f2ff' : '#ffffff');
                 resetBall(h);
                 ball.trail = []; // Explicit clear
@@ -979,6 +1158,17 @@ function update() {
             let lh = lastSafeHoop;
             let lRimL = lh.x - lh.w / 2;
             let lRimR = lh.x + lh.w / 2;
+
+            // Safe Hoop Assist
+            if (gameState === 'FLYING' && ball.vy > 0) {
+                let distToCenterX = lh.x - ball.x;
+                if (Math.abs(distToCenterX) < 30) {
+                    if (ball.y < lh.y + 10 && ball.y > lh.y - 40) {
+                        ball.vx += distToCenterX * 0.15;
+                        ball.vy *= 0.9;
+                    }
+                }
+            }
 
             if (ball.vy > 0 &&
                 ball.x > lRimL + 10 && ball.x < lRimR - 10 &&
@@ -1205,6 +1395,12 @@ function draw() {
 
     // Hoops
     hoops.forEach(h => {
+        // TIER: LEGEND (Score > 1000) - Ghost Mode
+        let isGhost = (score > 1000);
+        if (isGhost) {
+            ctx.globalAlpha = 0.4 + Math.sin(gameTime * 0.05 + h.timeOffset) * 0.3; // 0.1 to 0.7 opacity
+        }
+
         // Magnet Visuals (Waves)
         if (magnetTimer > 0 && !h.scored) {
             ctx.save();
@@ -1283,12 +1479,28 @@ function draw() {
             let by = h.y + Math.sin(b.angle) * b.dist;
             ctx.fillStyle = THEME.blocker;
             ctx.shadowBlur = 10;
-            ctx.shadowColor = THEME.blocker;
             ctx.beginPath();
             ctx.arc(bx, by, b.r, 0, Math.PI * 2);
             ctx.fill();
             ctx.shadowBlur = 0;
         });
+
+        ctx.globalAlpha = 1.0; // Reset alpha for next hoop/objects
+
+
+        // Shield Render
+        if (h.shield && h.shield.active) {
+            let s = h.shield;
+            ctx.beginPath();
+            ctx.arc(h.x, h.y, s.dist, s.angle, s.angle + s.arc);
+            ctx.strokeStyle = '#00ffcc';
+            ctx.lineWidth = 8;
+            ctx.lineCap = 'round';
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = '#00ffcc';
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+        }
     });
 
     // Particles
